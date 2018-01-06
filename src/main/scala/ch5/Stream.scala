@@ -60,6 +60,22 @@ trait Stream[+A] {
       if (p(h)) Stream.cons(h, t) else Stream.empty[A])
 
   def headOption2: Option[A] = foldRight(None: Option[A])((h, _) => Some(h))
+
+  def constant(a: A): Stream[A] = Stream.cons(a, constant(a))
+
+  // lazy val だから、1回しか評価しない ver
+  def fastConstant(a: A): Stream[A] = {
+    lazy val tail: Stream[A] = Cons(() => a, () => tail)
+    tail
+  }
+
+  // 余再帰と呼ばれるもので、通常の再帰がリストを消費するのに対して、こちらはリストを生成する
+  def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] = {
+    f(z) match {
+      case Some((h, t)) => Stream.cons(h, unfold(t)(f))
+      case None => Stream.empty
+    }
+  }
 }
 
 case object Empty extends Stream[Nothing]
