@@ -90,4 +90,32 @@ object RNG {
     inner(count, rng, List())
   }
 
+  case class State[S, +A](run: S => (A, S)) {
+
+    def map[B](f: A => B): State[S, B] = {
+      flatMap(a => State.unit(f(a)))
+    }
+
+    def flatMap[B](f: A => State[S, B]): State[S, B] = State[S, B](s => {
+      val (a, s1) = run(s)
+      f(a).run(s1)
+    })
+
+    def modify[S](f: S => S): State[S, Unit] = for {
+      s <- get
+      _ <- set(f(s))
+    } yield ()
+
+    def get[S]: State[S, S] = State(s => (s, s))
+
+    def set[S](s: S): State[S, Unit] = State(_ => ((), s))
+  }
+
+  object State {
+
+    type Rand[A] = State[RNG, A]
+
+    def unit[S, A](a: A): State[S, A] = State((a, _))
+  }
+
 }
