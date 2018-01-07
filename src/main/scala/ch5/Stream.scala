@@ -36,13 +36,13 @@ trait Stream[+A] {
   }
 
   def take(n: Int): Stream[A] = this match {
-    case Cons(h, t) if n > 0  => Stream.cons(h(), t().take(n - 1))
-    case Cons(h, _) if n == 0 => Stream.cons(h(), Empty)
+    case Cons(h, t) if n > 1  => Stream.cons(h(), t().take(n - 1))
+    case Cons(h, _) if n == 1 => Stream.cons(h(), Empty)
     case _                    => Stream.empty
   }
 
   def drop(n: Int): Stream[A] = this match {
-    case Cons(_, t) if n > 0 => t().drop(n - 1)
+    case Cons(_, t) if n > 1 => t().drop(n - 1)
     case _                   => this
   }
 
@@ -61,15 +61,15 @@ trait Stream[+A] {
 
   def headOption2: Option[A] = foldRight(None: Option[A])((h, _) => Some(h))
 
-  def constant(a: A): Stream[A] = Stream.cons(a, constant(a))
+  def constant[A](a: A): Stream[A] = Stream.cons(a, constant(a))
 
   // lazy val だから、1回しか評価しない ver
-  def fastConstant(a: A): Stream[A] = {
+  def fastConstant[A](a: A): Stream[A] = {
     lazy val tail: Stream[A] = Cons(() => a, () => tail)
     tail
   }
 
-  // 余再帰と呼ばれるもので、通常の再帰がリストを消費するのに対して、こちらはリストを生成する
+  // 余再帰と呼ばれるもので、通常の再帰がリストを消費するのに対して、こちらはリストを生成する。
   def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] = {
     f(z) match {
       case Some((h, t)) => Stream.cons(h, unfold(t)(f))
