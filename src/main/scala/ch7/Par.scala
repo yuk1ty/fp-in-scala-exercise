@@ -22,7 +22,11 @@ object Par {
 
   type Par[A] = ExecutorService => Future[A]
 
+  def run[A](s: ExecutorService)(a: Par[A]): Future[A] = a(s)
+
   def unit[A](a: A): Par[A] = (es: ExecutorService) => UnitFuture(a)
+
+  def lazyUnit[A](a: A): Par[A] = fork(unit(a))
 
   private case class UnitFuture[A](get: A) extends Future[A] {
 
@@ -35,6 +39,9 @@ object Par {
     override def get(timeout: Long, unit: TimeUnit): A = get
   }
 
+  def map[A, B](pa: Par[A])(f: A => B): Par[B] =
+    map2(pa, unit(()))((a, _) => f(a))
+
   def map2[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] =
     (es: ExecutorService) => {
       val af = a(es)
@@ -43,6 +50,22 @@ object Par {
     }
 
   def fork[A](a: => Par[A]): Par[A] = es => es.submit(() => a(es).get)
+
+  def asyncF[A, B](f: A => B): A => Par[B] = a => lazyUnit(f(a))
+
+  def sequence[A](ps: List[Par[A]]): Par[List[A]] =
+    ps.foldRight(unit(List[A]()))((h, t) => map2(h, t)(_ :: _))
+
+  def parFilter[A](as: List[A])(f: A => Boolean): Par[List[A]] = fork {
+    val fbs: List[Par[A]] = as.filter(f).map(unit)
+    sequence(fbs)
+  }
+
+  def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] = fork {
+    // TODO 間違ってるかも
+    val fbs: List[Par[B]] = ps.map(asyncF(f))
+    sequence(fbs)
+  }
 }
 
 trait Par[A]
