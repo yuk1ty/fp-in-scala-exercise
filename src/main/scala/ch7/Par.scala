@@ -67,5 +67,3 @@ object Par {
     sequence(fbs)
   }
 }
-
-trait Par[A]
