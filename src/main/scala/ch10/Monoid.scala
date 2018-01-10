@@ -65,6 +65,38 @@ object Monoid {
 
   def concatenate[A](as: List[A], m: Monoid[A]): A = as.foldLeft(m.zero)(m.op)
 
+  def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B =
+    foldMap(as, endoMonoid[B])(f.curried)(z)
+
   def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B =
     as.foldLeft(m.zero)((a, b) => m.op(a, f(b)))
+
+  sealed trait WC
+
+  case class Stub(chars: String) extends WC
+
+  case class Part(lStub: String, words: Int, rStub: String) extends WC
+
+  val wcMonoid = new Monoid[WC] {
+    override def op(a1: WC, a2: WC): WC = (a1, a2) match {
+      case (Stub(l), Stub(r))       => Stub(l + r)
+      case (Stub(s), Part(l, c, r)) => Part(s + l, c, r)
+      case (Part(l, c, r), Stub(s)) => Part(l, c, s + r)
+      case (Part(l1, c1, r1), Part(l2, c2, r2)) =>
+        Part(l1, c1 + (if ((r1 + l2).isEmpty) 0 else 1) + c2, r2)
+    }
+    override def zero: WC = Stub("")
+  }
+
+  // def count
+
+  trait Foldable[F[_]] {
+    def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B
+    def foldLeft[A, B](as: F[A])(z: B)(f: (B, A) => B): B
+    def foldMap[A, B](as: F[A])(f: A => B)(mb: Monoid[B]): B =
+      foldRight(as)(mb.zero)((a, b) => mb.op(f(a), b))
+    def concatenate[A](as: F[A])(m: Monoid[A]): A
+  }
+
+  trait ListFoldable extends Foldable[List] {}
 }
