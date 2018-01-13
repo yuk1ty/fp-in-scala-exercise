@@ -1,5 +1,7 @@
 package ch10
 
+import ch3.{Branch, Leaf, Tree}
+
 /*
  * Copyright 2017 Yuki Toyoda
  *
@@ -112,5 +114,41 @@ object Monoid {
       as.foldLeft(z)(f)
     override def foldMap[A, B](as: List[A])(f: A => B)(mb: Monoid[B]): B =
       foldLeft(as)(mb.zero)((b, a) => mb.op(b, f(a)))
+  }
+
+  trait IndexedSeqFoldable extends Foldable[IndexedSeq] {
+    override def foldRight[A, B](as: IndexedSeq[A])(z: B)(f: (A, B) => B): B =
+      as.foldRight(z)(f)
+    override def foldLeft[A, B](as: IndexedSeq[A])(z: B)(f: (B, A) => B): B =
+      as.foldLeft(z)(f)
+    override def foldMap[A, B](as: IndexedSeq[A])(f: A => B)(mb: Monoid[B]): B =
+      foldLeft(as)(mb.zero)((b, a) => mb.op(b, f(a)))
+  }
+
+  trait StreamFoldable extends Foldable[Stream] {
+    override def foldRight[A, B](as: Stream[A])(z: B)(f: (A, B) => B): B =
+      as.foldRight(z)(f)
+    override def foldLeft[A, B](as: Stream[A])(z: B)(f: (B, A) => B): B =
+      as.foldLeft(z)(f)
+  }
+
+  trait TreeFoldable extends Foldable[Tree] {
+    override def foldRight[A, B](as: Tree[A])(z: B)(f: (A, B) => B): B =
+      as match {
+        case Leaf(a)      => f(a, z)
+        case Branch(l, r) => foldRight(l)(foldRight(r)(z)(f))(f)
+      }
+
+    override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B): B =
+      as match {
+        case Leaf(a)      => f(a, z)
+        case Branch(l, r) => foldLeft(l)(foldLeft(l)(z)(f))(f)
+      }
+
+    override def foldMap[A, B](as: Tree[A])(f: A => B)(mb: Monoid[B]): B =
+      as match {
+        case Leaf(a)      => f(a)
+        case Branch(l, r) => mb.op(foldMap(l)(f)(mb), foldMap(r)(f)(mb))
+      }
   }
 }
