@@ -1,5 +1,7 @@
 package ch13
 
+import ch11.Monad
+
 /*
  * Copyright 2017 Yuki Toyoda
  *
@@ -49,7 +51,7 @@ trait PurePlayer {
 
 trait PurePlayerWiIO {
 
-  trait IO { self =>
+  sealed trait IO { self =>
     def run: Unit
 
     def ++(io: IO): IO = new IO {
@@ -82,4 +84,26 @@ trait PurePlayerWiIO {
 
   def contest(p1: Player, p2: Player): IO =
     printLine(winnerMsg(winner(p1, p2)))
+}
+
+sealed trait IO[A] { self =>
+  def run: A
+
+  def map[B](f: A => B): IO[B] = new IO[B] {
+    override def run: B = f(self.run)
+  }
+
+  def flatMap[B](f: A => IO[B]): IO[B] = new IO[B] {
+    override def run: B = f(self.run).run
+  }
+}
+
+object IO extends Monad[IO] {
+  def unit[A](a: => A): IO[A] = new IO[A] {
+    override def run: A = a
+  }
+
+  def flatMap[A, B](fa: IO[A])(f: A => IO[B]) = fa flatMap f
+
+  def apply[A](a: => A): IO[A] = unit(a)
 }

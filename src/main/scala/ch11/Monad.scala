@@ -16,4 +16,4 @@ package ch11
  * limitations under the License.
  */
 
-class Monad {}
+class Monad[F[_]] {}
