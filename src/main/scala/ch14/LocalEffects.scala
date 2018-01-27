@@ -51,46 +51,53 @@ class LocalEffects {
       qs(0, arr.length - 1)
       arr.toList
     }
+}
 
-  sealed trait ST[S, A] { self =>
-    protected def run(s: S): (A, S)
-    def map[B](f: A => B): ST[S, B] = new ST[S, B] {
-      override protected def run(s: S): (B, S) = {
-        val (a, s1) = self.run(s)
-        (f(a), s1)
-      }
+sealed trait ST[S, A] { self =>
+  protected def run(s: S): (A, S)
+  def map[B](f: A => B): ST[S, B] = new ST[S, B] {
+    override protected def run(s: S): (B, S) = {
+      val (a, s1) = self.run(s)
+      (f(a), s1)
     }
-    def flatMap[B](f: A => ST[S, B]): ST[S, B] = new ST[S, B] {
-      override protected def run(s: S): (B, S) = {
-        val (a, s1) = self.run(s)
-        f(a).run(s1)
-      }
+  }
+  def flatMap[B](f: A => ST[S, B]): ST[S, B] = new ST[S, B] {
+    override protected def run(s: S): (B, S) = {
+      val (a, s1) = self.run(s)
+      f(a).run(s1)
+    }
+  }
+}
+
+object ST {
+  def apply[S, A](a: => A) = {
+    lazy val memo = a
+    new ST[S, A] {
+      override def run(s: S): (A, S) = (memo, s)
     }
   }
 
-  object ST {
-    def apply[S, A](a: => A) = {
-      lazy val memo = a
-      new ST[S, A] {
-        override def run(s: S): (A, S) = (memo, s)
-      }
+  def runST[A](s: RunnableST[A]): A = s.apply[Unit].run(())._1
+}
+
+sealed trait STRef[S, A] {
+  protected var cell: A
+  def read: ST[S, A] = ST(cell)
+  def write(a: A): ST[S, Unit] = new ST[S, Unit] {
+    override protected def run(s: S): (Unit, S) = {
+      cell = a
+      ((), s)
     }
   }
+}
 
-  sealed trait STRef[S, A] {
-    protected var cell: A
-    def read: ST[S, A] = ST(cell)
-    def write(a: A): ST[S, Unit] = new ST[S, Unit] {
-      override protected def run(s: S): (Unit, S) = {
-        cell = a
-        ((), s)
-      }
-    }
-  }
-
-  object STRef {
-    def apply[S, A](a: A): ST[S, STRef[S, A]] = ST(new STRef[S, A] {
+object STRef {
+  def apply[S, A](a: A): ST[S, STRef[S, A]] =
+    ST(new STRef[S, A] {
       var cell = a
     })
-  }
+}
+
+trait RunnableST[A] {
+  def apply[S]: ST[S, A]
 }
